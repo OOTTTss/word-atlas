@@ -54,7 +54,7 @@ export function Practice() {
   return (
     <div className="page practice">
       <header className="page-head">
-        <p className="eyebrow">练习 · Typing Studio</p>
+        <p className="eyebrow">拼写与听写练习</p>
         <h1 className="display">让手，也记住它们。</h1>
         <p className="lede">打字只练拼写和手感，不会改动记忆进度。</p>
       </header>
@@ -81,8 +81,8 @@ export function Practice() {
           <p className="muted">
             {pool.length
               ? source === "path"
-                ? "从学习路线的前 400 个词里随机抽 10 个。"
-                : `可练 ${pool.length} 个词，每轮随机 10 个。`
+                ? `从基础词包的 ${pool.length} 个词里随机抽 ${Math.min(10, pool.length)} 个。`
+                : `可练 ${pool.length} 个词，每轮随机 ${Math.min(10, pool.length)} 个。`
               : "这里还没有词，先去学几个，或换个来源。"}
           </p>
           <button className="btn btn-primary btn-xl" onClick={start} disabled={!pool.length}>
@@ -241,6 +241,7 @@ function TypingRound({ mode, entries, onExit, onAgain }: { mode: Mode; entries: 
           autoCorrect="off"
           autoComplete="off"
           spellCheck={false}
+          placeholder="轻点这里，开始输入"
           aria-label="在这里输入"
         />
         <p className="muted typing-help">

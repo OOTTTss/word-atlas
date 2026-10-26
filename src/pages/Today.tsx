@@ -5,7 +5,6 @@ import { go, openWord } from "../lib/router";
 import { cue } from "../lib/sound";
 import { hashSeed } from "../lib/text";
 import { buildSession, masteredCount, todayPlan } from "../store/session";
-import { isMastered } from "../store/srs";
 import { dayKey, store, useStore } from "../store/store";
 import { Galaxy } from "../galaxy/Galaxy";
 import { Highlight, Pronounce } from "../ui/EntryView";
@@ -80,7 +79,7 @@ export function Today() {
         <p className="eyebrow">
           {now.getMonth() + 1}月{now.getDate()}日 · 星期{"日一二三四五六"[now.getDay()]}
         </p>
-        <h1 className="display">{greeting(now.getHours())}，探索者。</h1>
+        <h1 className="display">{greeting(now.getHours())}，一起学几个单词。</h1>
       </header>
 
       <section className={`journey ${total === 0 && !active ? "is-clear" : ""}`}>
@@ -116,7 +115,7 @@ export function Today() {
             <>
               <p className="eyebrow eyebrow-light">今日已完成</p>
               <h2>今天的星，都亮了。</h2>
-              <p className="journey-lede">记忆需要一点留白。想多走一段，也可以。</p>
+              <p className="journey-lede">今天辛苦了。明天再来复习，也可以去图鉴看看。</p>
             </>
           )}
           {teaser.length > 0 && (
@@ -191,7 +190,6 @@ export function Today() {
           </dl>
         </section>
 
-        <LevelPath />
         <GalaxyPanel learned={learned} total={atlas.count} />
         <Topics />
       </div>
@@ -230,7 +228,7 @@ function GalaxyPanel({ learned, total }: { learned: number; total: number }) {
 function WordOfDay() {
   const atlas = useAtlas();
   const pick = useMemo(() => {
-    const pool = atlas.words.filter((w) => w.cefr >= 2 && w.media & 1);
+    const pool = atlas.words.filter((w) => w.media & 1);
     const list = pool.length ? pool : atlas.words;
     return list[hashSeed(dayKey()) % list.length];
   }, [atlas]);
@@ -260,57 +258,6 @@ function WordOfDay() {
   );
 }
 
-function LevelPath() {
-  const atlas = useAtlas();
-  const cards = useStore((s) => s.progress.cards);
-  const start = useStore((s) => s.settings.startLevel);
-  const levels = useMemo(() => {
-    const out = atlas.cefr.map((name) => ({ name, total: 0, seen: 0, mastered: 0 }));
-    for (const w of atlas.words) {
-      const l = out[w.cefr];
-      l.total++;
-      const c = cards[w.id];
-      if (c) {
-        l.seen++;
-        if (isMastered(c)) l.mastered++;
-      }
-    }
-    return out;
-  }, [atlas, cards]);
-  const NAMES = ["入门", "基础", "进阶", "中高", "高级", "精通"];
-  return (
-    <section className="panel path-panel">
-      <div className="panel-head">
-        <h3 className="eyebrow">学习路线 · 从 A1 到 C2</h3>
-        <span className="legend">
-          <i className="lg-seen" /> 已学 <i className="lg-done" /> 已掌握
-        </span>
-      </div>
-      <ol className="route">
-        {levels.map((l, i) => {
-          const seen = l.seen / Math.max(1, l.total);
-          const done = l.mastered / Math.max(1, l.total);
-          return (
-            <li key={l.name} className={`${i === start ? "is-start" : ""} ${l.seen ? "is-on" : ""}`}>
-              <button onClick={() => go({ page: "atlas", level: l.name })} aria-label={`${l.name} ${NAMES[i]}，已学 ${l.seen} / ${l.total}`}>
-                <span className="station" style={{ "--seen": seen, "--done": done } as React.CSSProperties}>
-                  <b>{l.name}</b>
-                </span>
-                <span className="station-name">{NAMES[i]}</span>
-                <span className="station-count">
-                  {l.seen}
-                  <small>/{l.total}</small>
-                </span>
-                {i === start && <span className="station-flag">起点</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
-  );
-}
-
 function Topics() {
   const atlas = useAtlas();
   const counts = useMemo(() => {
@@ -321,7 +268,7 @@ function Topics() {
   return (
     <section className="topics-panel">
       <div className="panel-head">
-        <h3 className="eyebrow">按雅思话题探索</h3>
+        <h3 className="eyebrow">按生活主题探索</h3>
         <button className="link" onClick={() => go({ page: "atlas" })}>
           打开图鉴
         </button>
@@ -330,7 +277,7 @@ function Topics() {
         {atlas.topics.map(([key, name], i) => (
           <li key={key}>
             <button onClick={() => go({ page: "atlas", topic: key })}>
-              <img src={`${BRAND}/topic-${key}.webp`} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+              <img src={atlas.img(atlas.words.find((w) => w.topic === i)!, "thumb") ?? undefined} alt="" loading="lazy" />
               <span>
                 <b>{name}</b>
                 <small>{counts[i]} 个词</small>

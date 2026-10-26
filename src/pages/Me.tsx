@@ -2,11 +2,11 @@ import { Download, RotateCcw, Upload } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { useAtlas } from "../atlas/context";
 import { isMastered } from "../store/srs";
-import { dayKey, exportBackup, importBackup, resetProgress, store, useStore, type Settings } from "../store/store";
+import { dayKey, exportBackup, getPreviousBackup, importBackup, parseBackup, resetProgress, store, useStore, type Settings } from "../store/store";
 import { toast } from "../ui/Toast";
 import { streakOf } from "./Today";
 
-export function Me({ privateAvailable }: { privateAvailable: boolean }) {
+export function Me() {
   const atlas = useAtlas();
   const progress = useStore((s) => s.progress);
   const settings = useStore((s) => s.settings);
@@ -43,7 +43,11 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
   };
   const restore = async (f: File) => {
     if (f.size > 30 * 1024 * 1024) return toast("文件太大，不像是学习备份。", "warn");
-    const r = importBackup(await f.text());
+    const text = await f.text();
+    const preview = parseBackup(text, atlas.id);
+    if (!preview.ok) return toast(preview.error, "warn");
+    if (!confirm(`这份备份有 ${Object.keys(preview.progress.cards).length} 个已学单词，将替换当前进度。本机会保留一份导入前记录。确定导入吗？`)) return;
+    const r = importBackup(text);
     toast(r.ok ? `已恢复 ${r.cards} 个词的记忆` : r.error, r.ok ? "ok" : "warn");
   };
   const maxF = Math.max(1, ...stats.forecast);
@@ -91,7 +95,7 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
         <section className="panel">
           <h3 className="eyebrow">过去 20 周</h3>
           <Heatmap days={progress.days} />
-          <p className="muted">一格是一天，颜色越深，那天答得越多。「长期记住」指记忆稳定度超过 21 天。</p>
+          <p className="muted">一格是一天，颜色越深，那天答得越多。「长期记住」是算法估计稳定度至少 21 天，仅供参考。</p>
         </section>
 
         <section className="panel">
@@ -109,25 +113,16 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
 
         <section className="panel settings">
           <h3 className="eyebrow">学习设置</h3>
-          <Field label="每日新词" hint="复习不设上限，算法只安排快要遗忘的词。">
+          <Field label="每日新词" hint="从每天 5 个开始，先完成复习，再认识新词。">
             <div className="segmented">
-              {[5, 10, 15, 20, 30].map((n) => (
+              {[5, 8, 10].map((n) => (
                 <button key={n} className={settings.dailyNew === n ? "is-on" : ""} onClick={() => set({ dailyNew: n })}>
                   {n}
                 </button>
               ))}
             </div>
           </Field>
-          <Field label="从哪个难度开始" hint="跳过已经熟悉的低级别词。">
-            <div className="segmented">
-              {atlas.cefr.map((l, i) => (
-                <button key={l} className={settings.startLevel === i ? "is-on" : ""} onClick={() => set({ startLevel: i })}>
-                  {l}
-                </button>
-              ))}
-            </div>
-          </Field>
-          <Field label="目标记忆率" hint="越高复习越频繁。90% 是大多数人的甜点。">
+          <Field label="目标记忆率" hint="算法用它安排复习；数值越高，复习通常越频繁。这是估计，不是记忆保证。">
             <div className="segmented">
               {[0.85, 0.9, 0.95].map((n) => (
                 <button key={n} className={settings.retention === n ? "is-on" : ""} onClick={() => set({ retention: n })}>
@@ -165,23 +160,12 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
           <Toggle label="界面音效" on={settings.sfx} set={(v) => set({ sfx: v })} />
           <Toggle label="开屏动画（每天一次）" on={settings.splash} set={(v) => set({ splash: v })} />
           <Toggle label="复习时加入拼写题" on={settings.spell} set={(v) => set({ spell: v })} />
-          {privateAvailable && (
-            <Field label="词库" hint="私人词库只在本机开发服务器中可用，不会被打包发布。">
-              <div className="segmented">
-                <button className={settings.dataset === "open" ? "is-on" : ""} onClick={() => set({ dataset: "open" })}>
-                  开放图鉴
-                </button>
-                <button className={settings.dataset === "private" ? "is-on" : ""} onClick={() => set({ dataset: "private" })}>
-                  私人 8000
-                </button>
-              </div>
-            </Field>
-          )}
         </section>
 
         <section className="panel">
-          <h3 className="eyebrow">数据</h3>
-          <p className="muted">进度只存在这台设备的浏览器里：没有账号，没有服务器。换设备时，导出备份再导入即可。</p>
+          <h3 className="eyebrow">家长 · 学习记录备份</h3>
+          <p className="muted">进度只保存在这台浏览器里，不会自动上传或同步。请定期导出到 iPad 的「文件」中；清除网站数据或换设备前，先备份。</p>
+          <p className="muted">导入会替换当前进度。本机会保留一份导入前记录，可在这里恢复。</p>
           {saveError && <p className="warn-text">浏览器拒绝保存（可能是隐私模式或空间已满）。请尽快导出备份。</p>}
           <div className="data-actions">
             <button className="btn btn-ghost" onClick={download}>
@@ -191,6 +175,16 @@ export function Me({ privateAvailable }: { privateAvailable: boolean }) {
               <Upload size={18} /> 导入备份
             </button>
             <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => e.target.files?.[0] && restore(e.target.files[0]).finally(() => (e.target.value = ""))} />
+            {getPreviousBackup() && (
+              <button className="btn btn-ghost" onClick={() => {
+                const previous = getPreviousBackup();
+                if (!previous || !confirm("恢复导入前的本机记录？这会替换当前进度。")) return;
+                const r = importBackup(previous);
+                toast(r.ok ? `已恢复 ${r.cards} 个词的记忆` : r.error, r.ok ? "ok" : "warn");
+              }}>
+                <RotateCcw size={18} /> 恢复导入前记录
+              </button>
+            )}
             <button
               className="btn btn-ghost btn-danger"
               onClick={() => {

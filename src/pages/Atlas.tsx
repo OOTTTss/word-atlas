@@ -23,7 +23,7 @@ const STATUS: [Status, string][] = [
 type View = "grid" | "list" | "galaxy";
 function readView(): View {
   try {
-    const v = localStorage.getItem("word-atlas:view");
+    const v = localStorage.getItem("word-atlas-child:view");
     return v === "list" || v === "galaxy" ? v : "grid";
   } catch {
     return "grid";
@@ -67,7 +67,7 @@ export function AtlasPage({
 
   useEffect(() => {
     try {
-      localStorage.setItem("word-atlas:view", view);
+      localStorage.setItem("word-atlas-child:view", view);
     } catch {
       /* optional */
     }
@@ -104,7 +104,7 @@ export function AtlasPage({
             都有一幅画。
           </h1>
           <p className="lede">
-            {atlas.examples.toLocaleString()} 条原创例句 · 英美发音 · 按难度和 {atlas.topics.length} 个雅思话题整理
+            {atlas.count.toLocaleString()} 个基础词 · 英美发音 · {atlas.topics.length} 个生活主题
           </p>
         </div>
         <label className="search">

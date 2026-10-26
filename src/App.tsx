@@ -1,7 +1,7 @@
 import { BookOpen, ChevronLeft, ChevronRight, Compass, Github, Keyboard, Moon, Search, Sun, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AtlasContext, useAtlas, useEntry } from "./atlas/context";
-import { loadOpenAtlas, loadPrivateAtlas } from "./atlas/data";
+import { loadOpenAtlas } from "./atlas/data";
 import type { Atlas } from "./atlas/types";
 import { REPO_URL } from "./config";
 import { closeWord, currentLocation, go, openWord, useLocation, type Route } from "./lib/router";
@@ -43,29 +43,18 @@ function useTheme() {
 
 export default function App() {
   const [atlas, setAtlas] = useState<Atlas | null>(null);
-  const [open, setOpen] = useState<Atlas | null>(null);
-  const [priv, setPriv] = useState<Atlas | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const dataset = useStore((s) => s.settings.dataset);
   useTheme();
 
   useEffect(() => {
     loadOpenAtlas().then(
       (a) => {
-        setOpen(a);
-        if (import.meta.env.DEV) loadPrivateAtlas(a).then(setPriv, () => null);
+        store.useDataset(a.id);
+        setAtlas(a);
       },
       (e: Error) => setError(e.message),
     );
   }, []);
-
-  useEffect(() => {
-    const next = dataset === "private" && priv ? priv : open;
-    if (next && next !== atlas) {
-      store.useDataset(next.id);
-      setAtlas(next);
-    }
-  }, [dataset, open, priv, atlas]);
 
   if (error)
     return (
@@ -86,12 +75,12 @@ export default function App() {
     );
   return (
     <AtlasContext.Provider value={atlas}>
-      <Shell privateAvailable={!!priv} />
+      <Shell />
     </AtlasContext.Provider>
   );
 }
 
-function Shell({ privateAvailable }: { privateAvailable: boolean }) {
+function Shell() {
   const { route, word } = useLocation();
   const onboarded = useStore((s) => s.settings.onboarded);
   const theme = useStore((s) => s.settings.theme);
@@ -157,7 +146,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
         {route.page === "atlas" && <AtlasPage route={route} />}
         {route.page === "learn" && <Learn />}
         {route.page === "practice" && <Practice />}
-        {route.page === "me" && <Me privateAvailable={privateAvailable} />}
+        {route.page === "me" && <Me />}
         {route.page === "about" && <About />}
       </main>
 
@@ -165,7 +154,7 @@ function Shell({ privateAvailable }: { privateAvailable: boolean }) {
         <footer className="footer">
           <Logo compact />
           <p>
-            一词一画，点亮雅思 · 免费开源 ·{" "}
+            一词一画，每天进步一点 ·{" "}
             <a href={REPO_URL} target="_blank" rel="noreferrer">
               GitHub
             </a>{" "}

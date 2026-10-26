@@ -1,14 +1,13 @@
-/* Word Atlas offline cache: app shell network-first, everything else cache-first. */
-const VERSION = "atlas-v1";
-const SHELL = `${VERSION}-shell`;
-const MEDIA = `${VERSION}-media`;
+const PREFIX = `word-atlas-child:${new URL(self.registration.scope).pathname}:`;
+const VERSION = "__BUILD_ID__";
+const SHELL = `${PREFIX}${VERSION}:shell`;
+const MEDIA = `${PREFIX}${VERSION}:media`;
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => !k.startsWith(VERSION)).map((k) => caches.delete(k))))
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== SHELL && k !== MEDIA).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -23,31 +22,33 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || req.headers.has("range")) return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return;
+  const scope = new URL(self.registration.scope);
+  if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
   const isShell = req.mode === "navigate" || url.pathname.endsWith("/index.json");
   if (isShell) {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) caches.open(SHELL).then((c) => c.put(req, res.clone()));
-          return res;
-        })
-        .catch(() => caches.match(req).then((hit) => hit || caches.match(new URL("./", self.registration.scope).href))),
+      fetch(req).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          event.waitUntil(caches.open(SHELL).then((c) => c.put(req, copy)));
+        }
+        return res;
+      }).catch(async () => {
+        const cache = await caches.open(SHELL);
+        return await cache.match(req) || await cache.match(scope.href) || Response.error();
+      }),
     );
     return;
   }
-  event.respondWith(
-    caches.match(req).then(
-      (hit) =>
-        hit ||
-        fetch(req).then((res) => {
-          if (res.ok && res.type === "basic") {
-            const copy = res.clone();
-            const name = /\/atlas\/(img|thumb|audio)\//.test(url.pathname) ? MEDIA : SHELL;
-            caches.open(name).then((c) => c.put(req, copy)).then(() => name === MEDIA && trim(MEDIA, 1500));
-          }
-          return res;
-        }),
-    ),
-  );
+  const name = /\/atlas\/(img|thumb|audio)\//.test(url.pathname) ? MEDIA : SHELL;
+  event.respondWith(caches.open(name).then(async (cache) => {
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    const res = await fetch(req);
+    if (res.ok && res.type === "basic") {
+      const copy = res.clone();
+      event.waitUntil(cache.put(req, copy).then(() => name === MEDIA && trim(MEDIA, 1500)));
+    }
+    return res;
+  }));
 });

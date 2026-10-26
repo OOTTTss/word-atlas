@@ -56,7 +56,6 @@ export interface Settings {
   spell: boolean;
   startLevel: number;
   onboarded: boolean;
-  dataset: "open" | "private";
   ambience: "off" | "stars" | "rain" | "sea" | "forest" | "fire" | "voyage" | "cafe";
   ambienceVolume: number;
   splash: boolean;
@@ -65,17 +64,16 @@ export interface Settings {
 export const defaultSettings: Settings = {
   accent: "uk",
   autoplay: true,
-  dailyNew: 10,
+  dailyNew: 5,
   retention: 0.9,
-  theme: "dark",
+  theme: "light",
   sfx: true,
   spell: true,
   startLevel: 0,
   onboarded: false,
-  dataset: "open",
-  ambience: "stars",
+  ambience: "off",
   ambienceVolume: 0.45,
-  splash: true,
+  splash: false,
 };
 
 export const emptyProgress = (datasetId: string): Progress => ({
@@ -92,8 +90,8 @@ export const emptyProgress = (datasetId: string): Progress => ({
 export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const SETTINGS_KEY = "word-atlas:settings";
-const progressKey = (id: string) => `word-atlas:v2:${id}`;
+const SETTINGS_KEY = "word-atlas-child:settings";
+const progressKey = (id: string) => `word-atlas-child:v2:${id}`;
 
 function read<T>(key: string): T | null {
   try {
@@ -167,9 +165,7 @@ export function sanitizeSettings(v: unknown): Settings {
   if (v.theme === "system" || v.theme === "light" || v.theme === "dark") s.theme = v.theme;
   if (typeof v.sfx === "boolean") s.sfx = v.sfx;
   if (typeof v.spell === "boolean") s.spell = v.spell;
-  if (num(v.startLevel, 0, 5)) s.startLevel = Math.round(v.startLevel as number);
   if (typeof v.onboarded === "boolean") s.onboarded = v.onboarded;
-  if (v.dataset === "open" || v.dataset === "private") s.dataset = v.dataset;
   if (["off", "stars", "rain", "sea", "forest", "fire", "voyage", "cafe"].includes(v.ambience as string)) s.ambience = v.ambience as Settings["ambience"];
   if (num(v.ambienceVolume, 0, 1)) s.ambienceVolume = v.ambienceVolume as number;
   if (typeof v.splash === "boolean") s.splash = v.splash;
@@ -185,7 +181,7 @@ interface State {
 }
 
 let state: State = {
-  progress: emptyProgress("word-atlas-open"),
+  progress: emptyProgress("word-atlas-child"),
   settings: sanitizeSettings(read(SETTINGS_KEY)),
   saveError: false,
 };
@@ -291,11 +287,7 @@ export function exportBackup() {
   return JSON.stringify({ app: "word-atlas", version: 2, exported: new Date().toISOString(), progress: { ...progress, session: null }, settings }, null, 1);
 }
 
-function markDirty() {
-  dirty = true;
-}
-
-export function importBackup(text: string): { ok: true; cards: number } | { ok: false; error: string } {
+export function parseBackup(text: string, datasetId: string): { ok: true; progress: Progress; settings: Settings } | { ok: false; error: string } {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -304,19 +296,31 @@ export function importBackup(text: string): { ok: true; cards: number } | { ok: 
   }
   if (!isObj(data) || data.app !== "word-atlas" || data.version !== 2 || !isObj(data.progress))
     return { ok: false, error: "这不是词光的学习备份。" };
-  const id = state.progress.datasetId;
-  if (data.progress.datasetId !== id) return { ok: false, error: "备份来自另一个词库，请先切换到对应词库。" };
-  const progress = sanitizeProgress({ ...data.progress, session: null }, id);
-  state = { ...state, progress, settings: { ...sanitizeSettings(data.settings), onboarded: true } };
+  if (data.progress.datasetId !== datasetId) return { ok: false, error: "这份备份不属于当前基础词包，不能恢复到这里。" };
+  const progress = sanitizeProgress({ ...data.progress, session: null }, datasetId);
+  return { ok: true, progress, settings: { ...sanitizeSettings(data.settings), onboarded: true } };
+}
+
+export function getPreviousBackup(): string | null {
+  const backup = read<unknown>(`word-atlas-child:previous:${state.progress.datasetId}`);
+  return backup ? JSON.stringify(backup) : null;
+}
+
+export function importBackup(text: string): { ok: true; cards: number } | { ok: false; error: string } {
+  const parsed = parseBackup(text, state.progress.datasetId);
+  if (!parsed.ok) return parsed;
+  if (!write(`word-atlas-child:previous:${state.progress.datasetId}`, JSON.parse(exportBackup())))
+    return { ok: false, error: "无法保留当前记录，导入已取消。请先导出备份并检查浏览器空间。" };
+  state = { ...state, progress: parsed.progress, settings: parsed.settings };
   emit();
-  markDirty();
+  dirty = true;
   flush();
-  return { ok: true, cards: Object.keys(progress.cards).length };
+  return { ok: true, cards: Object.keys(parsed.progress.cards).length };
 }
 
 export function resetProgress() {
   state = { ...state, progress: emptyProgress(state.progress.datasetId) };
   emit();
-  markDirty();
+  dirty = true;
   flush();
 }

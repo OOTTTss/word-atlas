@@ -12,9 +12,9 @@ export function About() {
         <img src={`${BASE}brand/og.webp`} alt="" />
         <div>
           <p className="eyebrow">关于词光</p>
-          <h1 className="display">一词一画，点亮雅思。</h1>
+          <h1 className="display">一词一画，每天进步一点。</h1>
           <p className="lede">
-            词光把雅思阅读 8000 词整理成 {atlas.count.toLocaleString()} 个词条。每个词一幅原创插画，一句日常例句，一句雅思例句，配英美发音、常用搭配和易混提示。学会一个，就在你的星图上点亮一颗星。
+            这份家庭版从 Word Atlas 中选出 {atlas.count.toLocaleString()} 个基础词，按生活主题整理，保留插画、英美发音和日常例句。它是通用基础词包，尚未按学校教材编排。
           </p>
           <p className="lede">它免费、开源、无需注册。代码用 MIT，词库用 CC BY 4.0，谁都可以拿去用。</p>
           <div className="about-actions">
@@ -90,18 +90,18 @@ export function About() {
         <section className="panel">
           <h3 className="eyebrow">内容从哪里来</h3>
           <p className="muted">
-            释义、例句、搭配和提示由大语言模型按统一的词典规范重新撰写；插画由图像模型按统一画风逐词绘制；发音和朗读由 ElevenLabs 合成（英音 Alice，美音 Sarah）。所有内容都经过结构和一致性的自动校验，但没有逐条人工审校。看到错的地方，欢迎在 GitHub 提 Issue，或者直接改数据提 PR。
+            释义、例句、搭配和提示由大语言模型按统一的词典规范重新撰写；插画由图像模型按统一画风逐词绘制；发音和朗读由 ElevenLabs 合成（英音 Alice，美音 Sarah）。家庭版筛选了词头与日常例句，并移除了雅思长例句。原素材不是逐条人工审定的教材；遇到不熟悉的用法，请和家长一起核对。
           </p>
-          <p className="muted">词光不是官方雅思词表，也不承诺提分。它只想把背单词这件事，做得好看一点、扎实一点。</p>
+          <p className="muted">本项目基于 <a href="https://github.com/designfuchen/word-atlas" target="_blank" rel="noreferrer">designfuchen/word-atlas</a> 修改。Word Atlas contributors — <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>。</p>
         </section>
 
         <section className="panel">
-          <h3 className="eyebrow">给开发者</h3>
+          <h3 className="eyebrow">给家长</h3>
           <p className="muted">
-            <code>data/word-atlas.json</code> 和 <code>.csv</code> 是完整词库；<code>public/atlas</code> 里是网页用的分块数据、插画和音频。拿去做 Anki 牌组、背词小程序、浏览器插件，或者 AI 应用的评测集，署名即可。
+            家长可在「我的」里导出和恢复学习记录。日常使用不需要任何模型服务密钥；学习内容和音频来自本站已有文件。
           </p>
           <a className="link" href={`${REPO_URL}#readme`} target="_blank" rel="noreferrer">
-            阅读文档 <ArrowUpRight size={14} />
+            查看项目说明 <ArrowUpRight size={14} />
           </a>
         </section>
       </div>

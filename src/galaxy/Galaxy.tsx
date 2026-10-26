@@ -158,8 +158,8 @@ export function Galaxy({
   useEffect(() => {
     if (mode !== "full") return;
     try {
-      if (localStorage.getItem("word-atlas:galaxy-hello")) return;
-      localStorage.setItem("word-atlas:galaxy-hello", "1");
+      if (localStorage.getItem("word-atlas-child:galaxy-hello")) return;
+      localStorage.setItem("word-atlas-child:galaxy-hello", "1");
     } catch {
       return;
     }

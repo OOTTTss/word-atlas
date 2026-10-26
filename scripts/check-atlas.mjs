@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const pub = path.join(root, "public/atlas");
+const pub = path.resolve(root, process.argv[2] || "public/atlas");
 const index = JSON.parse(fs.readFileSync(path.join(pub, "index.json"), "utf8"));
 const errors = [];
 const warn = { headwordNotInExample: 0, missingIpa: 0, oneExample: 0 };
@@ -42,7 +42,7 @@ for (let n = 0; n * index.chunk < index.count; n++) {
     if (!Array.isArray(e.senses) || !e.senses.length || e.senses.some((s) => !s.zh)) fail(`no senses: ${e.id}`);
     if (!Array.isArray(e.ex) || !e.ex.length || e.ex.some((x) => !x.en || !x.zh)) fail(`bad examples: ${e.id}`);
     examples += e.ex.length;
-    if (e.ex.length < 2) warn.oneExample++;
+    if (index.id !== "word-atlas-child" && e.ex.length < 2) warn.oneExample++;
     if (!e.uk && !e.us) warn.missingIpa++;
     const stem = e.w.toLowerCase().split(" ")[0].replace(/(e|y)$/, "").slice(0, 5);
     if (e.ex[0] && !e.ex[0].en.toLowerCase().includes(stem)) warn.headwordNotInExample++;
